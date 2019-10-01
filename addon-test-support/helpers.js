@@ -1,7 +1,17 @@
 import { dasherize } from '@ember/string';
 import RSVP from 'rsvp';
 
-export async function capture(assert, fileName, { selector = null, fullPage = true, delayMs = 100, windowWidth, windowHeight } = {}) {
+export async function capture(
+  assert,
+  fileName,
+  {
+    selector = null,
+    fullPage = true,
+    delayMs = 100,
+    windowWidth,
+    windowHeight
+  } = {}
+) {
   let testId = assert.test.testId;
 
   let queryParamString = window.location.search.substr(1);
@@ -9,7 +19,6 @@ export async function capture(assert, fileName, { selector = null, fullPage = tr
 
   // If is in capture mode, set the capture up & stop the tests
   if (queryParams.includes('capture=true')) {
-
     // If it is not the current test, skip...
     // Otherwise, it would be impossible to have multiple captures in one test
     if (!queryParams.includes(`fileName=${fileName}`)) {
@@ -30,19 +39,43 @@ export async function capture(assert, fileName, { selector = null, fullPage = tr
     `testId=${testId}`,
     'devmode',
     `fileName=${fileName}`,
-    'capture=true',
+    'capture=true'
   ];
 
-  let url = `${window.location.protocol}//${window.location.host}${window.location.pathname}?${urlQueryParams.join('&')}`;
-  let response = await requestCapture(url, fileName, { selector, fullPage, delayMs, windowWidth, windowHeight });
+  let url = `${window.location.protocol}//${window.location.host}${
+    window.location.pathname
+  }?${urlQueryParams.join('&')}`;
+  let response = await requestCapture(url, fileName, {
+    selector,
+    fullPage,
+    delayMs,
+    windowWidth,
+    windowHeight
+  });
 
+  if (response.status === 'SUCCESS') {
+    _assertResults(assert, fileName, response);
+  } else {
+    response = await requestCapture(url, fileName, {
+      selector,
+      fullPage,
+      delayMs,
+      windowWidth,
+      windowHeight
+    });
+
+    _assertResults(assert, fileName, response);
+  }
+
+  return response;
+}
+
+function _assertResults(assert, fileName, response) {
   if (response.status === 'SUCCESS') {
     assert.ok(true, `visual-test: ${fileName} has not changed`);
   } else {
     assert.ok(false, `visual-test: ${fileName} has changed: ${response.error}`);
   }
-
-  return response;
 }
 
 export function prepareCaptureMode() {
@@ -60,7 +93,11 @@ export function prepareCaptureMode() {
   }
 }
 
-export async function requestCapture(url, fileName, { selector, fullPage, delayMs, windowWidth, windowHeight }) {
+export async function requestCapture(
+  url,
+  fileName,
+  { selector, fullPage, delayMs, windowWidth, windowHeight }
+) {
   // If not in capture mode, make a request to the middleware to capture a screenshot in node
   fileName = dasherize(fileName);
 
@@ -74,7 +111,11 @@ export async function requestCapture(url, fileName, { selector, fullPage, delayM
     windowHeight
   };
 
-  return await ajaxPost('/visual-test/make-screenshot', data, 'application/json');
+  return await ajaxPost(
+    '/visual-test/make-screenshot',
+    data,
+    'application/json'
+  );
 }
 
 export function ajaxPost(url, data, contentType = 'application/json') {
@@ -98,7 +139,7 @@ function parseAjaxResponse(responseText) {
   let data = responseText;
   try {
     data = JSON.parse(data);
-  } catch(e) {
+  } catch (e) {
     // do nothing
   }
   return data;
