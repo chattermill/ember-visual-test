@@ -72,12 +72,28 @@ export async function capture(assert, fileName, {
   });
 
   if (response.status === 'SUCCESS') {
+    _assertResults(assert, fileName, response);
+  } else {
+    response = await requestCapture(url, fileName, {
+      selector,
+      fullPage,
+      delayMs,
+      windowWidth,
+      windowHeight
+    });
+
+    _assertResults(assert, fileName, response);
+  }
+
+  return response;
+}
+
+function _assertResults(assert, fileName, response) {
+  if (response.status === 'SUCCESS') {
     assert.ok(true, `visual-test: ${fileName} has not changed`);
   } else {
     assert.ok(false, `visual-test: ${fileName} has changed: ${response.error}`);
   }
-
-  return response;
 }
 
 export function prepareCaptureMode() {
@@ -139,8 +155,9 @@ function parseAjaxResponse(responseText) {
   let data = responseText;
   try {
     data = JSON.parse(data);
-  } catch(e) {
-    // do nothing
+  } catch (e) {
+    console.log('Got an error'); // eslint-disable-line
+    console.log(e); // eslint-disable-line
   }
   return data;
 }

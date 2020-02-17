@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs-extra');
 const pixelmatch = require('pixelmatch');
 const HeadlessChrome = require('simple-headless-chrome');
-const request = require('request-promise-native');
+const request = require('request-promise-native'); // eslint-disable-line
 const os = require('os');
 
 /* eslint-disable node/no-extraneous-require */
@@ -41,22 +41,8 @@ module.exports = {
     this._super.included.apply(this, ...arguments);
     this._ensureThisImport();
 
-    let options = Object.assign({}, this.visualTest, app.options.visualTest);
     this._debugLog('Setting up ember-visual-test...');
-
-    options.forceBuildVisualTestImages = !!process.env.FORCE_BUILD_VISUAL_TEST_IMAGES;
-    this.visualTest = options;
-
-    let osType = os.type().toLowerCase();
-    switch (osType) {
-      case 'windows_nt':
-        osType = 'win';
-        break;
-      case 'darwin':
-        osType = 'mac';
-        break;
-    }
-    options.os = osType;
+    this._setupOptions(app.options.visualTest);
 
     this.import('vendor/visual-test.css', {
       type: 'test'
@@ -147,7 +133,7 @@ module.exports = {
     }
 
     await tab.goTo(url);
-     await tab.resizeFullScreen();
+    await tab.resizeFullScreen();
 
     // This is inserted into the DOM by the capture helper when everything is ready
     await tab.waitForSelectorToLoad('#visual-test-has-loaded', { interval: 100 });
@@ -324,6 +310,8 @@ module.exports = {
   },
 
   testemMiddleware(app) {
+    const visualTest = this.project.config('test').visualTest;
+    this._setupOptions(visualTest);
     this.middleware(app);
   },
 
@@ -371,7 +359,24 @@ module.exports = {
 
   isDevelopingAddon() {
     return false;
-  }
+  },
+
+  _setupOptions(visualTest) {
+    let options = Object.assign({}, this.visualTest, visualTest);
+    options.forceBuildVisualTestImages = !!process.env.FORCE_BUILD_VISUAL_TEST_IMAGES;
+    this.visualTest = options;
+
+    let osType = os.type().toLowerCase();
+    switch (osType) {
+      case 'windows_nt':
+        osType = 'win';
+        break;
+      case 'darwin':
+        osType = 'mac';
+        break;
+    }
+    options.os = osType;
+  },
 };
 
 function log() {
