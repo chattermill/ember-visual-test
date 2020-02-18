@@ -287,6 +287,7 @@ module.exports = {
         newBaseline,
         newScreenshotUrl
       }) => {
+
         data.newScreenshotUrl = newScreenshotUrl;
         data.newBaseline = newBaseline;
 

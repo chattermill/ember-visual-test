@@ -35,7 +35,6 @@ export async function capture(assert, fileName, {
 
   // If is in capture mode, set the capture up & stop the tests
   if (queryParams.includes('capture=true')) {
-
     // If it is not the current test, skip...
     // Otherwise, it would be impossible to have multiple captures in one test
     if (!queryParams.includes(`fileName=${fileName}`)) {
@@ -131,7 +130,11 @@ export async function requestCapture(url, fileName, {
     windowHeight
   };
 
-  return await ajaxPost('/visual-test/make-screenshot', data, 'application/json');
+  return await ajaxPost(
+    '/visual-test/make-screenshot',
+    data,
+    'application/json'
+  );
 }
 
 export function ajaxPost(url, data, contentType = 'application/json') {
