@@ -1,17 +1,33 @@
 import { dasherize } from '@ember/string';
 import RSVP from 'rsvp';
 
-export async function capture(
-  assert,
-  fileName,
-  {
-    selector = null,
-    fullPage = true,
-    delayMs = 100,
-    windowWidth,
-    windowHeight
-  } = {}
-) {
+/**
+ * Capture a screenshot of the current page.
+ * This works in both acceptance tests as well as in integration tests.
+ *
+ * ```
+ * import capture from 'ember-visual-test/test-support/helpers';
+ *
+ * await capture(assert, 'unique-name');
+ * ```
+ *
+ *
+ * @function capture
+ * @param {Object} assert The assert function. This assumes you are using qunit.
+ * @param {string} fileName  A unique string to identify this capture. This will be the file name of the generated images, and has to be unique across your whole application. If it contains '/', subdirectories will be created so you can group baseline images.
+ * @param {Object} [options] An optional object with options. The following options are allowed:
+ * @param {string} [options.selector] An optional selector to screenshot. If not specified, the whole page will be captured.
+ * @param {boolean} [options.fullPage] If a full page screenshot should be made, or just the browsers viewport. Defaults to `true`
+ * @param {integer} [options.delayMs] Delay (in milliseconds) before taking the screenshot. Useful when you need to wait for CSS transitions, etc. Defaults to `100`.
+ * @return {Promise}
+ */
+export async function capture(assert, fileName, {
+  selector = null,
+  fullPage = true,
+  delayMs = 100,
+  windowWidth,
+  windowHeight
+} = {}) {
   let testId = assert.test.testId;
 
   let queryParamString = window.location.search.substr(1);
@@ -45,6 +61,7 @@ export async function capture(
   let url = `${window.location.protocol}//${window.location.host}${
     window.location.pathname
   }?${urlQueryParams.join('&')}`;
+
   let response = await requestCapture(url, fileName, {
     selector,
     fullPage,
@@ -93,11 +110,13 @@ export function prepareCaptureMode() {
   }
 }
 
-export async function requestCapture(
-  url,
-  fileName,
-  { selector, fullPage, delayMs, windowWidth, windowHeight }
-) {
+export async function requestCapture(url, fileName, {
+  selector,
+  fullPage,
+  delayMs,
+  windowWidth,
+  windowHeight
+}) {
   // If not in capture mode, make a request to the middleware to capture a screenshot in node
   fileName = dasherize(fileName);
 
@@ -140,7 +159,8 @@ function parseAjaxResponse(responseText) {
   try {
     data = JSON.parse(data);
   } catch (e) {
-    // do nothing
+    console.log('Got an error'); // eslint-disable-line
+    console.log(e); // eslint-disable-line
   }
   return data;
 }

@@ -2,17 +2,19 @@
 
 const commands = require('./lib/commands');
 const path = require('path');
-const fs = require('fs');
-const bodyParser = require('body-parser');
-const { PNG } = require('pngjs');
+const fs = require('fs-extra');
 const pixelmatch = require('pixelmatch');
-const RSVP = require('rsvp');
 const HeadlessChrome = require('simple-headless-chrome');
-const request = require('request');
+const request = require('request-promise-native'); // eslint-disable-line
 const os = require('os');
 
+/* eslint-disable node/no-extraneous-require */
+const bodyParser = require('body-parser');
+const { PNG } = require('pngjs');
+/* eslint-enable node/no-extraneous-require */
+
 module.exports = {
-  name: 'ember-visual-test',
+  name: require('./package').name,
 
   // The base settings
   // This can be overwritten
@@ -26,15 +28,17 @@ module.exports = {
     imageLogging: false,
     debugLogging: false,
     imgurClientId: null,
+    includeAA: true,
     groupByOs: true,
     chromePort: 0,
     windowWidth: 1024,
     windowHeight: 768,
-    noSandbox: false
+    noSandbox: false,
+    chromeFlags: []
   },
 
   included(app) {
-    this._super.included(app);
+    this._super.included.apply(this, ...arguments);
     this._ensureThisImport();
 
     this._debugLog('Setting up ember-visual-test...');
@@ -45,21 +49,29 @@ module.exports = {
     });
   },
 
-  _launchBrowser: async function({ windowWidth, windowHeight }) {
+  async _getBrowser({ windowWidth, windowHeight }) {
+    if (this.browser) {
+      return this.browser;
+    }
+
     let options = this.visualTest;
 
-    let flags = [
-      '--enable-logging',
-      '--start-maximized'
-    ];
+    // ensure only strings are used as flags
+    let flags = options.chromeFlags.filter(flag => typeof flag === 'string' && flag);
+    if (!flags.includes('--enable-logging')) {
+      flags.push('--enable-logging');
+    }
 
+    if (!flags.includes('--start-maximized')) {
+      flags.push('--start-maximized');
+    }
 
     let noSandbox = options.noSandbox;
     if (process.env.TRAVIS || process.env.CIRCLECI) {
       noSandbox = true;
     }
 
-    const browser = new HeadlessChrome({
+    this.browser = new HeadlessChrome({
       headless: true,
       chrome: {
         flags,
@@ -78,49 +90,55 @@ module.exports = {
 
     // This is started while the app is building, so we can assume this will be ready
     this._debugLog('Starting chrome instance...');
-    await browser.init();
-    this._debugLog(`Chrome instance initialized with port=${browser.port}`);
+    await this.browser.init();
+    this._debugLog(`Chrome instance initialized with port=${this.browser.port}`);
 
-    return browser;
+    return this.browser;
   },
 
-  _imageLog(str) {
-    if (this.visualTest.imageLogging) {
-      console.log(str);
-    }
-  },
-
-  _debugLog(str) {
-    if (this.visualTest.debugLogging) {
-      console.log(str);
-    }
-  },
-
-  _makeScreenshots: async function(url, fileName, { selector, fullPage, delayMs, windowWidth, windowHeight }) {
-    let options = this.visualTest;
-    let browser;
-    try {
-      browser = await this._launchBrowser({ windowWidth, windowHeight });
-    } catch(e) {
-      console.error('Error when launching browser!');
-      console.error(e);
-      return { newBaseline: false, newScreenshotUrl: null, chromeError: true };
-    }
-    let tab = await browser.newTab({ privateTab: false });
-
-    await tab.goTo(url);
-
-    await tab.resizeFullScreen();
+  async _getBrowserTab({ windowWidth, windowHeight }) {
+    const browser = await this._getBrowser({ windowWidth, windowHeight });
+    const tab = await browser.newTab({ privateTab: false });
 
     tab.onConsole((options) => {
       let logValue = options.map((item) => item.value).join(' ');
       this._debugLog(`Browser log: ${logValue}`);
     });
 
+    return tab;
+  },
+
+  _imageLog(str) {
+    if (this.visualTest.imageLogging) {
+      log(str);
+    }
+  },
+
+  _debugLog(str) {
+    if (this.visualTest.debugLogging) {
+      log(str);
+    }
+  },
+
+  async _makeScreenshots(url, fileName, { selector, fullPage, delayMs, windowWidth, windowHeight }) {
+    let options = this.visualTest;
+    let tab;
+
+    try {
+      tab = await this._getBrowserTab({ windowWidth, windowHeight });
+    } catch (e) {
+      logError('Error when launching browser!');
+      logError(e);
+      return { newBaseline: false, newScreenshotUrl: null, chromeError: true };
+    }
+
+    await tab.goTo(url);
+    await tab.resizeFullScreen();
+
     // This is inserted into the DOM by the capture helper when everything is ready
     await tab.waitForSelectorToLoad('#visual-test-has-loaded', { interval: 100 });
 
-    let fullPath = path.join(options.imageDirectory, fileName);
+    let fullPath = `${path.join(options.imageDirectory, fileName)}.png`;
 
     let screenshotOptions = { selector, fullPage };
 
@@ -129,28 +147,30 @@ module.exports = {
 
     // only if the file does not exist, or if we force to save, do we write the actual images themselves
     let newScreenshotUrl = null;
-    let newBaseline = options.forceBuildVisualTestImages || !fs.existsSync(`${fullPath}.png`);
+    let newBaseline = options.forceBuildVisualTestImages || !fs.existsSync(fullPath);
     if (newBaseline) {
       this._imageLog(`Making base screenshot ${fileName}`);
-      await tab.saveScreenshot(fullPath, screenshotOptions);
 
-      newScreenshotUrl = await this._tryUploadToImgur(`${fullPath}.png`);
+      await fs.outputFile(fullPath, await tab.getScreenshot(screenshotOptions, true));
+
+      newScreenshotUrl = await this._tryUploadToImgur(fullPath);
       if (newScreenshotUrl) {
         this._imageLog(`New screenshot can be found under ${newScreenshotUrl}`);
       }
     }
 
     // Always make the tmp screenshot
-    let fullTmpPath = path.join(options.imageTmpDirectory, fileName);
+    let fullTmpPath = `${path.join(options.imageTmpDirectory, fileName)}.png`;
     this._imageLog(`Making comparison screenshot ${fileName}`);
-    await tab.saveScreenshot(fullTmpPath, screenshotOptions);
+    await fs.outputFile(fullTmpPath, await tab.getScreenshot(screenshotOptions, true));
 
     try {
-      await browser.close();
+      await tab.close();
     } catch(e) {
-      console.error('Error closing the browser...');
-      console.error(e);
+      logError('Error closing a tab...');
+      logError(e);
     }
+
     return { newBaseline, newScreenshotUrl };
   },
 
@@ -162,90 +182,72 @@ module.exports = {
       fileName = `${fileName}.png`;
     }
 
-    let baselineImgPath = path.join(options.imageDirectory, '/', fileName);
-    let imgPath = path.join(options.imageTmpDirectory, '/', fileName);
+    let baselineImgPath = path.join(options.imageDirectory, fileName);
+    let imgPath = path.join(options.imageTmpDirectory, fileName);
 
-    return new RSVP.Promise(function(resolve, reject) {
-      let img1 = fs.createReadStream(baselineImgPath).pipe(new PNG()).on('parsed', doneReading);
-      let img2 = fs.createReadStream(imgPath).pipe(new PNG()).on('parsed', doneReading);
+    // eslint-disable-next-line no-async-promise-executor
+    return new Promise(async function(resolve, reject) {
+      let baseImg = fs.createReadStream(baselineImgPath).pipe(new PNG()).on('parsed', doneReading);
+      let tmpImg = fs.createReadStream(imgPath).pipe(new PNG()).on('parsed', doneReading);
       let filesRead = 0;
 
-      function doneReading() {
+      async function doneReading() {
         if (++filesRead < 2) {
           return;
         }
-        let diff = new PNG({ width: img1.width, height: img1.height });
 
-        let errorPixelCount = pixelmatch(img1.data, img2.data, diff.data, img1.width, img1.height, {
+        const diff = new PNG({ width: baseImg.width, height: baseImg.height });
+        const errorPixelCount = pixelmatch(baseImg.data, tmpImg.data, diff.data, baseImg.width, baseImg.height, {
           threshold: options.imageMatchThreshold,
-          includeAA: true
+          includeAA: options.includeAA
         });
 
         if (errorPixelCount <= options.imageMatchAllowedFailures) {
           return resolve();
         }
 
-        let diffPath = path.join(options.imageDiffDirectory, '/', fileName);
-        diff.pack().pipe(fs.createWriteStream(diffPath)).on('close', () => {
-          RSVP.all([
-            _this._tryUploadToImgur(imgPath),
-            _this._tryUploadToImgur(diffPath)
-          ]).then(([urlTmp, urlDiff]) => {
-            reject({
-              errorPixelCount,
-              allowedErrorPixelCount: options.imageMatchAllowedFailures,
-              diffPath: urlDiff || diffPath,
-              tmpPath: urlTmp || imgPath
-            });
-          }).catch(reject);
+        let diffPath = path.join(options.imageDiffDirectory, fileName);
 
-        });
+        await fs.outputFile(diffPath, PNG.sync.write(diff));
+
+        Promise.all([
+          _this._tryUploadToImgur(imgPath),
+          _this._tryUploadToImgur(diffPath)
+        ]).then(([urlTmp, urlDiff]) => {
+          reject({
+            errorPixelCount,
+            allowedErrorPixelCount: options.imageMatchAllowedFailures,
+            diffPath: urlDiff || diffPath,
+            tmpPath: urlTmp || imgPath
+          });
+        }).catch(reject);
       }
     });
   },
 
-  _tryUploadToImgur: async function(imagePath) {
+  async _tryUploadToImgur(imagePath) {
     let imgurClientID = this.visualTest.imgurClientId;
 
     if (!imgurClientID) {
-      return RSVP.resolve(null);
+      return Promise.resolve(null);
     }
 
-    let fileBase64 = await new RSVP.Promise((resolve, reject) => {
-      fs.readFile(imagePath, { encoding: 'base64' }, function(err, data) {
-        if (err) {
-          return reject(err);
-        }
-        resolve(data);
-      });
-    });
-
-    return await new RSVP.Promise((resolve, reject) => {
-      let data = {
-        type: 'base64',
-        image: fileBase64
-      };
-
-      request.post(
-        'https://api.imgur.com/3/image',
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Client-ID ' + imgurClientID
-          },
-          json: data
+    return await request.post(
+      'https://api.imgur.com/3/image', {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Client-ID ' + imgurClientID
         },
-        (error, response, body) => {
-          if (!error && response.statusCode === 200) {
-            resolve(body.data.link);
-          } else {
-            console.error('Error sending data to imgur...');
-            console.error(body);
-            resolve(null); // We still want to resolve, as that is no reason to let the test error out
-          }
+        json: {
+          type: 'base64',
+          image: await fs.readFile(imagePath, { encoding: 'base64' })
         }
-      );
-    });
+      }).then((body) => {
+        return body.data.link;
+      }).catch((error) => {
+        logError('Error sending data to imgur...');
+        logError(error);
+      });
   },
 
   middleware(app) {
@@ -275,9 +277,20 @@ module.exports = {
       }
 
       let data = {};
-      this._makeScreenshots(url, fileName, { selector, fullPage, delayMs, windowWidth, windowHeight }).then(({ newBaseline, newScreenshotUrl }) => {
+      this._makeScreenshots(url, fileName, {
+        selector,
+        fullPage,
+        delayMs,
+        windowWidth,
+        windowHeight
+      }).then(({
+        newBaseline,
+        newScreenshotUrl
+      }) => {
+
         data.newScreenshotUrl = newScreenshotUrl;
         data.newBaseline = newBaseline;
+
         return this._compareImages(fileName);
       }).then(() => {
         data.status = 'SUCCESS';
@@ -297,18 +310,18 @@ module.exports = {
     });
   },
 
-  testemMiddleware: function(app) {
+  testemMiddleware(app) {
     const visualTest = this.project.config('test').visualTest;
     this._setupOptions(visualTest);
     this.middleware(app);
   },
 
-  serverMiddleware: function(options) {
+  serverMiddleware(options) {
     this.app = options.app;
     this.middleware(options.app);
   },
 
-  includedCommands: function() {
+  includedCommands() {
     return commands;
   },
 
@@ -331,9 +344,16 @@ module.exports = {
 
   _getFileName(fileName) {
     let options = this.visualTest;
+
     if (options.groupByOs) {
       let os = options.os;
-      return `${os}-${fileName}`;
+
+      const filePath = path.parse(fileName);
+
+      filePath.name = `${os}-${filePath.name}`;
+      delete filePath.base;
+
+      return path.format(filePath);
     }
     return fileName;
   },
@@ -343,50 +363,9 @@ module.exports = {
   },
 
   _setupOptions(visualTest) {
-    let options = Object.assign({}, this.visualTest);
-    let newOptions = visualTest || {};
-
-    if (newOptions.imageDirectory) {
-      options.imageDirectory = newOptions.imageDirectory;
-    }
-    if (newOptions.imageDiffDirectory) {
-      options.imageDiffDirectory = newOptions.imageDiffDirectory;
-    }
-    if (newOptions.imageTmpDirectory) {
-      options.imageTmpDirectory = newOptions.imageTmpDirectory;
-    }
-    if (newOptions.imageMatchAllowedFailures) {
-      options.imageMatchAllowedFailures = newOptions.imageMatchAllowedFailures;
-    }
-    if (newOptions.imageMatchThreshold) {
-      options.imageMatchThreshold = newOptions.imageMatchThreshold;
-    }
-    if (newOptions.imageLogging) {
-      options.imageLogging = newOptions.imageLogging;
-    }
-    if (newOptions.debugLogging) {
-      options.debugLogging = newOptions.debugLogging;
-    }
-    if (newOptions.imgurClientId) {
-      options.imgurClientId = newOptions.imgurClientId;
-    }
-    if (newOptions.groupByOs) {
-      options.groupByOs = newOptions.groupByOs;
-    }
-    if (newOptions.chromePort) {
-      options.chromePort = newOptions.chromePort;
-    }
-    if (newOptions.windowWidth) {
-      options.windowWidth = newOptions.windowWidth;
-    }
-    if (newOptions.windowHeight) {
-      options.windowHeight = newOptions.windowHeight;
-    }
-    if (newOptions.noSandbox) {
-      options.noSandbox = newOptions.noSandbox;
-    }
-
+    let options = Object.assign({}, this.visualTest, visualTest);
     options.forceBuildVisualTestImages = !!process.env.FORCE_BUILD_VISUAL_TEST_IMAGES;
+    this.visualTest = options;
 
     let osType = os.type().toLowerCase();
     switch (osType) {
@@ -398,9 +377,15 @@ module.exports = {
         break;
     }
     options.os = osType;
-
-    this.visualTest = options;
-
-    return options;
-  }
+  },
 };
+
+function log() {
+  // eslint-disable-next-line no-console
+  console.log(...arguments);
+}
+
+function logError() {
+  // eslint-disable-next-line no-console
+  console.error(...arguments);
+}
