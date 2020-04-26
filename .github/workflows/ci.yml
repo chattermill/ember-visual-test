@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - 'v*'
   pull_request: {}
   schedule:
     - cron:  '0 3 * * *' # daily, at 3am
@@ -81,7 +80,7 @@ jobs:
 
       - name: tests
         run: yarn ${{ matrix.test-suite }}
-        continue-on-error: ${{matrix.allow-failure}}
+        continue-on-error: ${{ matrix.allow-failure }}
 
   extra-tests:
     name: Tests (Floating Dependenies)
