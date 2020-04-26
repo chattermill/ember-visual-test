@@ -64,14 +64,14 @@ module.exports = {
       flags.push('--start-maximized');
     }
 
-    let { noSandbox } = options;
-    if (process.env.CI) {
-      noSandbox = true;
-    }
+    // let { noSandbox } = options;
+    // if (process.env.CI) {
+    //   noSandbox = true;
+    // }
 
-    if (noSandbox) {
-      flags.push('--no-sandbox');
-    }
+    // if (noSandbox) {
+    //   flags.push('--no-sandbox');
+    // }
     // This is started while the app is building, so we can assume this will be ready
     this._debugLog('Starting chrome instance...');
     this.browser = await puppeteer.launch({

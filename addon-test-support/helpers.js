@@ -1,6 +1,8 @@
 import { dasherize } from '@ember/string';
 import RSVP from 'rsvp';
 
+const isObject = data => Object.prototype.toString.call(data).slice(8, -1).toLowerCase();
+
 /**
  * Capture a screenshot of the current page.
  * This works in both acceptance tests as well as in integration tests.
@@ -144,6 +146,8 @@ export function ajaxPost(url, data, contentType = 'application/json') {
 
       if (xhr.status === 200) return resolve(data);
 
+      const message = isObject(data) ? JSON.stringify(data) : data;
+      console.log(`Couldn't post data, data is: ${message}`);
       reject(data);
     };
     xhr.send(JSON.stringify(data));
