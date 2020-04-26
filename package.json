@@ -1,13 +1,13 @@
 {
   "name": "ember-visual-test",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Test screens in acceptance/integration tests for visual changes over time.",
   "keywords": [
     "ember-addon"
   ],
-  "repository": "https://github.com/Cropster/ember-visual-test",
+  "repository": "https://github.com/chattermill/ember-visual-test",
   "license": "MIT",
-  "author": "Francesco Novy <francesconovy@gmail.com>",
+  "author": "Artem Hurzhii <artem@chattermill.io>",
   "directories": {
     "doc": "doc",
     "test": "tests"
@@ -17,6 +17,7 @@
     "lint:js": "eslint .",
     "start": "ember server",
     "test": "ember test",
+    "test:one": "ember try:one",
     "test:all": "ember try:each"
   },
   "dependencies": {
@@ -41,7 +42,6 @@
     "ember-cli-htmlbars": "^3.0.1",
     "ember-cli-htmlbars-inline-precompile": "^2.1.0",
     "ember-cli-inject-live-reload": "^2.0.2",
-    "ember-cli-release": "^1.0.0-beta.2",
     "ember-cli-sri": "^2.1.1",
     "ember-cli-uglify": "3.0.0",
     "ember-disable-prototype-extensions": "^1.1.3",
