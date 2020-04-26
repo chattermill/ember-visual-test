@@ -222,28 +222,33 @@ module.exports = {
           return;
         }
 
-        const diff = new PNG({ width: baseImg.width, height: baseImg.height });
-        const errorPixelCount = pixelmatch(
-          baseImg.data,
-          tmpImg.data,
-          diff.data,
-          baseImg.width,
-          baseImg.height,
-          {
-            threshold: options.imageMatchThreshold,
-            includeAA: options.includeAA,
+        try {
+          const diff = new PNG({ width: baseImg.width, height: baseImg.height });
+          const errorPixelCount = pixelmatch(
+            baseImg.data,
+            tmpImg.data,
+            diff.data,
+            baseImg.width,
+            baseImg.height,
+            {
+              threshold: options.imageMatchThreshold,
+              includeAA: options.includeAA,
+            }
+          );
+
+          if (errorPixelCount <= options.imageMatchAllowedFailures) {
+            return resolve();
           }
-        );
 
-        if (errorPixelCount <= options.imageMatchAllowedFailures) {
-          return resolve();
+          const diffPath = path.join(options.imageDiffDirectory, fileName);
+
+          await fs.outputFile(diffPath, PNG.sync.write(diff));
+
+          _this._debugLog('compare images generated');
+        } catch (e) {
+          _this._debugLog('tried to compare images, got error');
+          _this._debugLog(e);
         }
-
-        const diffPath = path.join(options.imageDiffDirectory, fileName);
-
-        await fs.outputFile(diffPath, PNG.sync.write(diff));
-
-        _this._debugLog('compare images generated');
       }
     });
   },

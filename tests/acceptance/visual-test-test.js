@@ -23,12 +23,12 @@ module('Acceptance | visual test - subdirectories', function(hooks) {
   test('subdir path', async function(assert) {
     await visit('/visual-test-route');
 
-    await capture(assert, 'subdir/visual-test');
+    await capture(assert, 'subdir-visual-test');
   });
 
   test('subdir/subdir path', async function(assert) {
     await visit('/visual-test-route');
 
-    await capture(assert, 'subdir/subdir1/visual-test');
+    await capture(assert, 'subdir-subdir1-visual-test');
   });
 });
