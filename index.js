@@ -3,7 +3,7 @@
 const path = require('path');
 const fs = require('fs-extra');
 const pixelmatch = require('pixelmatch');
-const HeadlessChrome = require('simple-headless-chrome');
+const puppeteer = require('puppeteer');
 const os = require('os');
 
 /* eslint-disable node/no-extraneous-require */
@@ -20,7 +20,6 @@ module.exports = {
     imageDirectory: 'visual-test-output/baseline',
     imageDiffDirectory: 'visual-test-output/diff',
     imageTmpDirectory: 'visual-test-output/tmp',
-    forceBuildVisualTestImages: false,
     imageMatchAllowedFailures: 0,
     imageMatchThreshold: 0.3,
     imageLogging: false,
@@ -68,43 +67,48 @@ module.exports = {
       noSandbox = true;
     }
 
-    this.browser = new HeadlessChrome({
+    if (noSandbox) {
+      flags.push('--no-sandbox');
+    }
+      // This is started while the app is building, so we can assume this will be ready
+    this._debugLog("Starting chrome instance...");
+    this.browser = await puppeteer.launch({
       headless: true,
-      chrome: {
-        flags,
-        port: options.port || options.chromePort,
-        userDataDir: null,
-        noSandbox
-      },
-      browserlog: true,
-      browserLog: true,
-      deviceMetrics: {
+      defaultViewport: {
         width: windowWidth || options.windowWidth,
         height: windowHeight || options.windowHeight,
       },
-      browser: {
-        browserLog: options.debugLogging
-      }
+      args: flags,
+      // chrome: {
+      //   flags,
+      //   port: options.port || options.chromePort,
+      // },
+      userDataDir: null,
+      // browserlog: true,
+      // browserLog: true,
+      // browser: {
+      //   browserLog: options.debugLogging,
+      // },
     });
-
-    // This is started while the app is building, so we can assume this will be ready
-    this._debugLog('Starting chrome instance...');
-    await this.browser.init();
     this._debugLog(`Chrome instance initialized with port=${this.browser.port}`);
 
     return this.browser;
   },
 
-  async _getBrowserTab({ windowWidth, windowHeight }) {
+  async _getBrowserPage({ windowWidth, windowHeight }) {
     const browser = await this._getBrowser({ windowWidth, windowHeight });
-    const tab = await browser.newTab({ privateTab: false });
+    const page = await browser.newPage();
 
-    tab.onConsole(options => {
-      const logValue = options.map((item) => item.value).join(' ');
-      this._debugLog(`Browser log: ${logValue}`);
+    page.once('load', () => {
+      this._debugLog('Page loaded again!');
     });
 
-    return tab;
+    page.on('console', msg => {
+      this._debugLog(`Browser log: ${msg.text()}`)
+    });
+
+    this._debugLog('returning page');
+    return page;
   },
 
   _imageLog(str) {
@@ -119,12 +123,12 @@ module.exports = {
     }
   },
 
-  async _makeScreenshots(url, fileName, { selector, fullPage, delayMs, windowWidth, windowHeight }) {
+  async _makeScreenshots(url, fileName, { fullPage, delayMs, windowWidth, windowHeight }) {
     const options = this.visualTest;
-    let tab;
+    let page;
 
     try {
-      tab = await this._getBrowserTab({ windowWidth, windowHeight });
+      page = await this._getBrowserPage({ windowWidth, windowHeight });
     } catch (e) {
       logError('Error when launching browser!');
       logError(e);
@@ -132,37 +136,49 @@ module.exports = {
     }
 
     try {
-      await tab.goTo(url, { timeout: 5000 });
-      await tab.resizeFullScreen();
+      await page.goto(url);
     } catch (e) {
       logError('Error opening or resizing pages');
       logError(e);
     }
 
     // This is inserted into the DOM by the capture helper when everything is ready
-    await tab.waitForSelectorToLoad('#visual-test-has-loaded', { interval: 1000 });
+    await page.waitForSelector('#visual-test-has-loaded');
+    this._debugLog('selector exist');
 
     const fullPath = `${path.join(options.imageDirectory, fileName)}.png`;
-    const screenshotOptions = { selector, fullPage };
+    const screenshotOptions = {
+      fullPage,
+      type: 'png',
+    };
 
     // To avoid problems...
-    await tab.wait(delayMs);
+    await page.waitFor(delayMs);
+    this._debugLog('awaited random time');
+    this._debugLog(`Screenshot params are: ${JSON.stringify(screenshotOptions)}`);
 
     // only if the file does not exist, or if we force to save, do we write the actual images themselves
-    const newBaseline = options.forceBuildVisualTestImages || !fs.existsSync(fullPath);
+    const newBaseline = !fs.existsSync(fullPath);
     if (newBaseline) {
       this._imageLog(`Making base screenshot ${fileName}`);
 
-      await fs.outputFile(fullPath, await tab.getScreenshot(screenshotOptions, true));
+      await page.screenshot(Object.assign({}, screenshotOptions, {
+        path: fullPath,
+      }));
     }
 
     // Always make the tmp screenshot
     const fullTmpPath = `${path.join(options.imageTmpDirectory, fileName)}.png`;
     this._imageLog(`Making comparison screenshot ${fileName}`);
-    await fs.outputFile(fullTmpPath, await tab.getScreenshot(screenshotOptions, true));
+    await page.screenshot(Object.assign({}, screenshotOptions, {
+      path: fullTmpPath,
+    }));
+
+    this._debugLog('screenshot generated');
 
     try {
-      await tab.close();
+      await page.close();
+      this._debugLog('page: closed');
     } catch(e) {
       logError('Error closing a tab...');
       logError(e);
@@ -173,6 +189,7 @@ module.exports = {
 
   _compareImages(fileName) {
     const options = this.visualTest;
+    const _this = this;
 
     if (!fileName.includes('.png')) {
       fileName = `${fileName}.png`;
@@ -205,6 +222,8 @@ module.exports = {
         const diffPath = path.join(options.imageDiffDirectory, fileName);
 
         await fs.outputFile(diffPath, PNG.sync.write(diff));
+
+        _this._debugLog('compare images generated');
       }
     });
   },
@@ -220,26 +239,26 @@ module.exports = {
     }));
 
     app.post('/visual-test/make-screenshot', (req, res) => {
-      const {
-        url,
-        selector,
-      } = req.body;
+      const { url } = req.body;
       const fileName = this._getFileName(req.body.name);
-      let { fullPage = false } = req.body;
+      let { fullPage = true } = req.body;
       const delayMs = req.body.delayMs ? parseInt(req.body.delayMs) : 100;
       const windowHeight = req.body.windowHeight ? parseInt(req.body.windowHeight) : null;
       const windowWidth = req.body.windowWidth ? parseInt(req.body.windowWidth) : null;
 
-      if (fullPage === 'true') {
-        fullPage = true;
-      }
-      if (fullPage === 'false') {
-        fullPage = false;
-      }
+      const params = {
+        url,
+        fileName,
+        fullPage,
+        delayMs,
+        windowWidth,
+        windowHeight,
+      };
+
+      this._debugLog(`posting screenshot with the options: ${JSON.stringify(params)}`);
 
       const data = {};
       this._makeScreenshots(url, fileName, {
-        selector,
         fullPage,
         delayMs,
         windowWidth,
@@ -252,11 +271,16 @@ module.exports = {
         return this._compareImages(fileName);
       }).then(() => {
         data.status = 'SUCCESS';
+
+        this._debugLog('images succeeded, all good');
+
         res.send(data);
       }).catch(reason => {
+        console.log(reason)
         const diffPath = reason ? reason.diffPath : null;
         const tmpPath = reason ? reason.tmpPath : null;
         const errorPixelCount = reason ? reason.errorPixelCount : null;
+        this._debugLog('images failed, something went wrong');
 
         data.status = 'ERROR';
         data.diffPath = diffPath;
@@ -318,7 +342,6 @@ module.exports = {
 
   _setupOptions(visualTest) {
     const options = Object.assign({}, this.visualTest, visualTest);
-    options.forceBuildVisualTestImages = !!process.env.FORCE_BUILD_VISUAL_TEST_IMAGES;
     this.visualTest = options;
 
     let osType = os.type().toLowerCase();
