@@ -15,6 +15,8 @@ module.exports = {
     browser: true
   },
   rules: {
+    'ember/no-test-import-export': 'warn',
+    'ember/no-get': 'warn',
   },
   overrides: [
     // node files
