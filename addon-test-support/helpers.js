@@ -28,10 +28,10 @@ export async function capture(assert, fileName, {
   windowWidth,
   windowHeight
 } = {}) {
-  let testId = assert.test.testId;
+  const { testId } = assert.test;
 
-  let queryParamString = window.location.search.substr(1);
-  let queryParams = queryParamString.split('&');
+  const queryParamString = window.location.search.substr(1);
+  const queryParams = queryParamString.split("&");
 
   // If is in capture mode, set the capture up & stop the tests
   if (queryParams.includes('capture=true')) {
@@ -51,16 +51,16 @@ export async function capture(assert, fileName, {
   }
 
   // If not in capture mode, make a request to the middleware to capture a screenshot in node
-  let urlQueryParams = [
+  const urlQueryParams = [
     `testId=${testId}`,
     'devmode',
     `fileName=${fileName}`,
     'capture=true'
   ];
 
-  let url = `${window.location.protocol}//${window.location.host}${
+  const url = `${window.location.protocol}//${window.location.host}${
     window.location.pathname
-  }?${urlQueryParams.join('&')}`;
+  }?${urlQueryParams.join("&")}`;
 
   let response = await requestCapture(url, fileName, {
     selector,
@@ -99,12 +99,12 @@ export function prepareCaptureMode() {
   // Add class for capture
   document.body.classList.add('visual-test-capture-mode');
 
-  let event = new CustomEvent('pageLoaded');
+  const event = new CustomEvent("pageLoaded");
   window.dispatchEvent(event);
 
   // Put this into the dom to make headless chrome aware that rendering is complete
   if (!document.querySelector('#visual-test-has-loaded')) {
-    let div = document.createElement('div');
+    const div = document.createElement("div");
     div.setAttribute('id', 'visual-test-has-loaded');
     document.body.appendChild(div);
   }
@@ -118,36 +118,32 @@ export async function requestCapture(url, fileName, {
   windowHeight
 }) {
   // If not in capture mode, make a request to the middleware to capture a screenshot in node
-  fileName = dasherize(fileName);
+  const name = dasherize(fileName);
 
-  let data = {
+  const data = {
     url,
-    name: fileName,
+    name,
     selector,
     fullPage,
     delayMs,
     windowWidth,
-    windowHeight
+    windowHeight,
   };
 
-  return await ajaxPost(
-    '/visual-test/make-screenshot',
-    data,
-    'application/json'
-  );
+  return ajaxPost('/visual-test/make-screenshot', data, 'application/json');
 }
 
 export function ajaxPost(url, data, contentType = 'application/json') {
-  let xhr = new XMLHttpRequest();
+  const xhr = new XMLHttpRequest();
 
   return new RSVP.Promise((resolve, reject) => {
     xhr.open('POST', url);
     xhr.setRequestHeader('Content-Type', contentType);
     xhr.onload = function() {
-      let data = parseAjaxResponse(xhr.responseText);
-      if (xhr.status === 200) {
-        return resolve(data);
-      }
+      const data = parseAjaxResponse(xhr.responseText);
+
+      if (xhr.status === 200) return resolve(data);
+
       reject(data);
     };
     xhr.send(JSON.stringify(data));

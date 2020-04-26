@@ -1,6 +1,5 @@
 'use strict';
 
-const commands = require('./lib/commands');
 const path = require('path');
 const fs = require('fs-extra');
 const pixelmatch = require('pixelmatch');
@@ -54,10 +53,10 @@ module.exports = {
       return this.browser;
     }
 
-    let options = this.visualTest;
+    const options = this.visualTest;
 
     // ensure only strings are used as flags
-    let flags = options.chromeFlags.filter(flag => typeof flag === 'string' && flag);
+    const flags = options.chromeFlags.filter(flag => typeof flag === 'string' && flag);
     if (!flags.includes('--enable-logging')) {
       flags.push('--enable-logging');
     }
@@ -67,7 +66,7 @@ module.exports = {
     }
 
     let noSandbox = options.noSandbox;
-    if (process.env.TRAVIS || process.env.CIRCLECI) {
+    if (process.env.CI || process.env.TRAVIS || process.env.CIRCLECI) {
       noSandbox = true;
     }
 
@@ -79,6 +78,7 @@ module.exports = {
         userDataDir: null,
         noSandbox
       },
+      browserlog: true,
       deviceMetrics: {
         width: windowWidth || options.windowWidth,
         height: windowHeight || options.windowHeight,
@@ -100,8 +100,8 @@ module.exports = {
     const browser = await this._getBrowser({ windowWidth, windowHeight });
     const tab = await browser.newTab({ privateTab: false });
 
-    tab.onConsole((options) => {
-      let logValue = options.map((item) => item.value).join(' ');
+    tab.onConsole(options => {
+      const logValue = options.map((item) => item.value).join(' ');
       this._debugLog(`Browser log: ${logValue}`);
     });
 
@@ -121,7 +121,7 @@ module.exports = {
   },
 
   async _makeScreenshots(url, fileName, { selector, fullPage, delayMs, windowWidth, windowHeight }) {
-    let options = this.visualTest;
+    const options = this.visualTest;
     let tab;
 
     try {
@@ -136,18 +136,18 @@ module.exports = {
     await tab.resizeFullScreen();
 
     // This is inserted into the DOM by the capture helper when everything is ready
-    await tab.waitForSelectorToLoad('#visual-test-has-loaded', { interval: 100 });
+    await tab.waitForSelectorToLoad('#visual-test-has-loaded', { interval: 1000 });
 
-    let fullPath = `${path.join(options.imageDirectory, fileName)}.png`;
+    const fullPath = `${path.join(options.imageDirectory, fileName)}.png`;
 
-    let screenshotOptions = { selector, fullPage };
+    const screenshotOptions = { selector, fullPage };
 
     // To avoid problems...
     await tab.wait(delayMs);
 
     // only if the file does not exist, or if we force to save, do we write the actual images themselves
     let newScreenshotUrl = null;
-    let newBaseline = options.forceBuildVisualTestImages || !fs.existsSync(fullPath);
+    const newBaseline = options.forceBuildVisualTestImages || !fs.existsSync(fullPath);
     if (newBaseline) {
       this._imageLog(`Making base screenshot ${fileName}`);
 
@@ -160,7 +160,7 @@ module.exports = {
     }
 
     // Always make the tmp screenshot
-    let fullTmpPath = `${path.join(options.imageTmpDirectory, fileName)}.png`;
+    const fullTmpPath = `${path.join(options.imageTmpDirectory, fileName)}.png`;
     this._imageLog(`Making comparison screenshot ${fileName}`);
     await fs.outputFile(fullTmpPath, await tab.getScreenshot(screenshotOptions, true));
 
@@ -175,20 +175,20 @@ module.exports = {
   },
 
   _compareImages(fileName) {
-    let options = this.visualTest;
-    let _this = this;
+    const options = this.visualTest;
+    const _this = this;
 
     if (!fileName.includes('.png')) {
       fileName = `${fileName}.png`;
     }
 
-    let baselineImgPath = path.join(options.imageDirectory, fileName);
-    let imgPath = path.join(options.imageTmpDirectory, fileName);
+    const baselineImgPath = path.join(options.imageDirectory, fileName);
+    const imgPath = path.join(options.imageTmpDirectory, fileName);
 
     // eslint-disable-next-line no-async-promise-executor
     return new Promise(async function(resolve, reject) {
-      let baseImg = fs.createReadStream(baselineImgPath).pipe(new PNG()).on('parsed', doneReading);
-      let tmpImg = fs.createReadStream(imgPath).pipe(new PNG()).on('parsed', doneReading);
+      const baseImg = fs.createReadStream(baselineImgPath).pipe(new PNG()).on('parsed', doneReading);
+      const tmpImg = fs.createReadStream(imgPath).pipe(new PNG()).on('parsed', doneReading);
       let filesRead = 0;
 
       async function doneReading() {
@@ -206,7 +206,7 @@ module.exports = {
           return resolve();
         }
 
-        let diffPath = path.join(options.imageDiffDirectory, fileName);
+        const diffPath = path.join(options.imageDiffDirectory, fileName);
 
         await fs.outputFile(diffPath, PNG.sync.write(diff));
 
@@ -226,7 +226,7 @@ module.exports = {
   },
 
   async _tryUploadToImgur(imagePath) {
-    let imgurClientID = this.visualTest.imgurClientId;
+    const { imgurClientID } = this.visualTest;
 
     if (!imgurClientID) {
       return Promise.resolve(null);
@@ -236,7 +236,7 @@ module.exports = {
       'https://api.imgur.com/3/image', {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Client-ID ' + imgurClientID
+          'Authorization': `Client-ID ${imgurClientID}`,
         },
         json: {
           type: 'base64',
@@ -261,13 +261,15 @@ module.exports = {
     }));
 
     app.post('/visual-test/make-screenshot', (req, res) => {
-      let url = req.body.url;
-      let fileName = this._getFileName(req.body.name);
-      let selector = req.body.selector;
-      let fullPage = req.body.fullPage || false;
-      let delayMs = req.body.delayMs ? parseInt(req.body.delayMs) : 100;
-      let windowHeight = req.body.windowHeight ? parseInt(req.body.windowHeight) : null;
-      let windowWidth = req.body.windowWidth ? parseInt(req.body.windowWidth) : null;
+      const {
+        url,
+        selector,
+      } = req.body;
+      const fileName = this._getFileName(req.body.name);
+      let { fullPage = false } = req.body;
+      const delayMs = req.body.delayMs ? parseInt(req.body.delayMs) : 100;
+      const windowHeight = req.body.windowHeight ? parseInt(req.body.windowHeight) : null;
+      const windowWidth = req.body.windowWidth ? parseInt(req.body.windowWidth) : null;
 
       if (fullPage === 'true') {
         fullPage = true;
@@ -276,7 +278,7 @@ module.exports = {
         fullPage = false;
       }
 
-      let data = {};
+      const data = {};
       this._makeScreenshots(url, fileName, {
         selector,
         fullPage,
@@ -295,10 +297,10 @@ module.exports = {
       }).then(() => {
         data.status = 'SUCCESS';
         res.send(data);
-      }).catch((reason) => {
-        let diffPath = reason ? reason.diffPath : null;
-        let tmpPath = reason ? reason.tmpPath : null;
-        let errorPixelCount = reason ? reason.errorPixelCount : null;
+      }).catch(reason => {
+        const diffPath = reason ? reason.diffPath : null;
+        const tmpPath = reason ? reason.tmpPath : null;
+        const errorPixelCount = reason ? reason.errorPixelCount : null;
 
         data.status = 'ERROR';
         data.diffPath = diffPath;
@@ -321,10 +323,6 @@ module.exports = {
     this.middleware(options.app);
   },
 
-  includedCommands() {
-    return commands;
-  },
-
   _ensureThisImport() {
     if (!this.import) {
       this._findHost = function findHostShim() {
@@ -336,17 +334,17 @@ module.exports = {
         return app;
       };
       this.import = function importShim(asset, options) {
-        let app = this._findHost();
+        const app = this._findHost();
         app.import(asset, options);
       };
     }
   },
 
   _getFileName(fileName) {
-    let options = this.visualTest;
+    const options = this.visualTest;
 
     if (options.groupByOs) {
-      let os = options.os;
+      const os = options.os;
 
       const filePath = path.parse(fileName);
 
@@ -363,7 +361,7 @@ module.exports = {
   },
 
   _setupOptions(visualTest) {
-    let options = Object.assign({}, this.visualTest, visualTest);
+    const options = Object.assign({}, this.visualTest, visualTest);
     options.forceBuildVisualTestImages = !!process.env.FORCE_BUILD_VISUAL_TEST_IMAGES;
     this.visualTest = options;
 
