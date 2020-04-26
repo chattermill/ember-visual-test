@@ -67,14 +67,18 @@ module.exports = {
       flags.push('--no-sandbox', '–disable-setuid-sandbox');
     }
 
+    const width = windowWidth || options.windowWidth;
+    const height = windowHeight || options.windowHeight;
+
     // This is started while the app is building, so we can assume this will be ready
     this._debugLog('Starting chrome instance...');
+    this._debugLog(`Launching browse with the size: height - ${height}, width: ${width}`);
+
     this.browser = await puppeteer.launch({
-      executablePath: 'google-chrome-stable',
       headless: true,
       defaultViewport: {
-        width: windowWidth || options.windowWidth,
-        height: windowHeight || options.windowHeight,
+        width,
+        height,
       },
       args: flags,
       userDataDir: null,
@@ -261,7 +265,7 @@ module.exports = {
     app.post('/visual-test/make-screenshot', (req, res) => {
       const { url } = req.body;
       const fileName = this._getFileName(req.body.name);
-      let { fullPage = true } = req.body;
+      let { fullPage = false } = req.body;
       const delayMs = req.body.delayMs ? parseInt(req.body.delayMs) : 100;
       const windowHeight = req.body.windowHeight
         ? parseInt(req.body.windowHeight)

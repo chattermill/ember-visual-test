@@ -73,29 +73,31 @@ export async function capture(assert, fileName, {
   });
 
   if (response.status === 'SUCCESS') {
-    _assertResults(assert, fileName, response);
+    // _assertResults(assert, fileName, response);
+    assert.ok(true, `visual-test: ${fileName} has not changed`);
   } else {
-    response = await requestCapture(url, fileName, {
-      selector,
-      fullPage,
-      delayMs,
-      windowWidth,
-      windowHeight
-    });
+    assert.ok(false, `visual-test: ${fileName} has changed: ${response.error}`);
+    // response = await requestCapture(url, fileName, {
+    //   selector,
+    //   fullPage,
+    //   delayMs,
+    //   windowWidth,
+    //   windowHeight
+    // });
 
-    _assertResults(assert, fileName, response);
+    // _assertResults(assert, fileName, response);
   }
 
   return response;
 }
 
-function _assertResults(assert, fileName, response) {
-  if (response.status === 'SUCCESS') {
-    assert.ok(true, `visual-test: ${fileName} has not changed`);
-  } else {
-    assert.ok(false, `visual-test: ${fileName} has changed: ${response.error}`);
-  }
-}
+// function _assertResults(assert, fileName, response) {
+//   if (response.status === 'SUCCESS') {
+//     assert.ok(true, `visual-test: ${fileName} has not changed`);
+//   } else {
+//     assert.ok(false, `visual-test: ${fileName} has changed: ${response.error}`);
+//   }
+// }
 
 export function prepareCaptureMode() {
   // Add class for capture
