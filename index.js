@@ -132,7 +132,7 @@ module.exports = {
     }
 
     try {
-      await tab.goTo(url);
+      await tab.goTo(url, { timeout: 5000 });
       await tab.resizeFullScreen();
     } catch (e) {
       logError('Error opening or resizing pages');
@@ -247,7 +247,6 @@ module.exports = {
       }).then(({
         newBaseline
       }) => {
-
         data.newBaseline = newBaseline;
 
         return this._compareImages(fileName);
