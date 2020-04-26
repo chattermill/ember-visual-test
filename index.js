@@ -20,17 +20,17 @@ module.exports = {
     imageDirectory: 'visual-test-output/baseline',
     imageDiffDirectory: 'visual-test-output/diff',
     imageTmpDirectory: 'visual-test-output/tmp',
-    imageMatchAllowedFailures: 0,
+    imageMatchAllowedFailures: 2,
     imageMatchThreshold: 0.3,
-    imageLogging: false,
-    debugLogging: false,
+    imageLogging: true,
+    debugLogging: true,
     includeAA: true,
     groupByOs: true,
-    chromePort: 0,
-    windowWidth: 1024,
-    windowHeight: 768,
+    chromePort: 9222,
+    windowWidth: 1440,
+    windowHeight: 900,
     noSandbox: false,
-    chromeFlags: []
+    chromeFlags: [],
   },
 
   included(app) {
@@ -41,7 +41,7 @@ module.exports = {
     this._setupOptions(app.options.visualTest);
 
     this.import('vendor/visual-test.css', {
-      type: 'test'
+      type: 'test',
     });
   },
 
@@ -53,7 +53,9 @@ module.exports = {
     const options = this.visualTest;
 
     // ensure only strings are used as flags
-    const flags = options.chromeFlags.filter(flag => typeof flag === 'string' && flag);
+    const flags = options.chromeFlags.filter(
+      (flag) => typeof flag === 'string' && flag
+    );
     if (!flags.includes('--enable-logging')) {
       flags.push('--enable-logging');
     }
@@ -70,8 +72,8 @@ module.exports = {
     if (noSandbox) {
       flags.push('--no-sandbox');
     }
-      // This is started while the app is building, so we can assume this will be ready
-    this._debugLog("Starting chrome instance...");
+    // This is started while the app is building, so we can assume this will be ready
+    this._debugLog('Starting chrome instance...');
     this.browser = await puppeteer.launch({
       headless: true,
       defaultViewport: {
@@ -90,7 +92,9 @@ module.exports = {
       //   browserLog: options.debugLogging,
       // },
     });
-    this._debugLog(`Chrome instance initialized with port=${this.browser.port}`);
+    this._debugLog(
+      `Chrome instance initialized with port=${this.browser.port}`
+    );
 
     return this.browser;
   },
@@ -103,8 +107,8 @@ module.exports = {
       this._debugLog('Page loaded again!');
     });
 
-    page.on('console', msg => {
-      this._debugLog(`Browser log: ${msg.text()}`)
+    page.on('console', (msg) => {
+      this._debugLog(`Browser log: ${msg.text()}`);
     });
 
     this._debugLog('returning page');
@@ -123,7 +127,11 @@ module.exports = {
     }
   },
 
-  async _makeScreenshots(url, fileName, { fullPage, delayMs, windowWidth, windowHeight }) {
+  async _makeScreenshots(
+    url,
+    fileName,
+    { fullPage, delayMs, windowWidth, windowHeight }
+  ) {
     const options = this.visualTest;
     let page;
 
@@ -155,31 +163,37 @@ module.exports = {
     // To avoid problems...
     await page.waitFor(delayMs);
     this._debugLog('awaited random time');
-    this._debugLog(`Screenshot params are: ${JSON.stringify(screenshotOptions)}`);
+    this._debugLog(
+      `Screenshot params are: ${JSON.stringify(screenshotOptions)}`
+    );
 
     // only if the file does not exist, or if we force to save, do we write the actual images themselves
     const newBaseline = !fs.existsSync(fullPath);
     if (newBaseline) {
       this._imageLog(`Making base screenshot ${fileName}`);
 
-      await page.screenshot(Object.assign({}, screenshotOptions, {
-        path: fullPath,
-      }));
+      await page.screenshot(
+        Object.assign({}, screenshotOptions, {
+          path: fullPath,
+        })
+      );
     }
 
     // Always make the tmp screenshot
     const fullTmpPath = `${path.join(options.imageTmpDirectory, fileName)}.png`;
     this._imageLog(`Making comparison screenshot ${fileName}`);
-    await page.screenshot(Object.assign({}, screenshotOptions, {
-      path: fullTmpPath,
-    }));
+    await page.screenshot(
+      Object.assign({}, screenshotOptions, {
+        path: fullTmpPath,
+      })
+    );
 
     this._debugLog('screenshot generated');
 
     try {
       await page.close();
       this._debugLog('page: closed');
-    } catch(e) {
+    } catch (e) {
       logError('Error closing a tab...');
       logError(e);
     }
@@ -199,10 +213,18 @@ module.exports = {
     const imgPath = path.join(options.imageTmpDirectory, fileName);
 
     // eslint-disable-next-line no-async-promise-executor
-    return new Promise(async function(resolve) {
-      const baseImg = fs.createReadStream(baselineImgPath).pipe(new PNG()).on('parsed', doneReading);
-      const tmpImg = fs.createReadStream(imgPath).pipe(new PNG()).on('parsed', doneReading);
-      let filesRead = 0;
+    return new Promise(async function (resolve) {
+      const baseImg = fs
+        .createReadStream(baselineImgPath)
+        .pipe(new PNG())
+        .on('parsed', doneReading);
+
+      const tmpImg = fs
+        .createReadStream(imgPath)
+        .pipe(new PNG())
+        .on('parsed', doneReading);
+
+        let filesRead = 0;
 
       async function doneReading() {
         if (++filesRead < 2) {
@@ -210,10 +232,17 @@ module.exports = {
         }
 
         const diff = new PNG({ width: baseImg.width, height: baseImg.height });
-        const errorPixelCount = pixelmatch(baseImg.data, tmpImg.data, diff.data, baseImg.width, baseImg.height, {
-          threshold: options.imageMatchThreshold,
-          includeAA: options.includeAA
-        });
+        const errorPixelCount = pixelmatch(
+          baseImg.data,
+          tmpImg.data,
+          diff.data,
+          baseImg.width,
+          baseImg.height,
+          {
+            threshold: options.imageMatchThreshold,
+            includeAA: options.includeAA,
+          }
+        );
 
         if (errorPixelCount <= options.imageMatchAllowedFailures) {
           return resolve();
@@ -229,22 +258,30 @@ module.exports = {
   },
 
   middleware(app) {
-    app.use(bodyParser.urlencoded({
-      limit: '5mb',
-      extended: true,
-      parameterLimit: 5000
-    }));
-    app.use(bodyParser.json({
-      limit: '5mb'
-    }));
+    app.use(
+      bodyParser.urlencoded({
+        limit: '5mb',
+        extended: true,
+        parameterLimit: 5000,
+      })
+    );
+    app.use(
+      bodyParser.json({
+        limit: '5mb',
+      })
+    );
 
     app.post('/visual-test/make-screenshot', (req, res) => {
       const { url } = req.body;
       const fileName = this._getFileName(req.body.name);
       let { fullPage = true } = req.body;
       const delayMs = req.body.delayMs ? parseInt(req.body.delayMs) : 100;
-      const windowHeight = req.body.windowHeight ? parseInt(req.body.windowHeight) : null;
-      const windowWidth = req.body.windowWidth ? parseInt(req.body.windowWidth) : null;
+      const windowHeight = req.body.windowHeight
+        ? parseInt(req.body.windowHeight)
+        : null;
+      const windowWidth = req.body.windowWidth
+        ? parseInt(req.body.windowWidth)
+        : null;
 
       const params = {
         url,
@@ -255,40 +292,43 @@ module.exports = {
         windowHeight,
       };
 
-      this._debugLog(`posting screenshot with the options: ${JSON.stringify(params)}`);
+      this._debugLog(
+        `posting screenshot with the options: ${JSON.stringify(params)}`
+      );
 
       const data = {};
       this._makeScreenshots(url, fileName, {
         fullPage,
         delayMs,
         windowWidth,
-        windowHeight
-      }).then(({
-        newBaseline
-      }) => {
-        data.newBaseline = newBaseline;
+        windowHeight,
+      })
+        .then(({ newBaseline }) => {
+          data.newBaseline = newBaseline;
 
-        return this._compareImages(fileName);
-      }).then(() => {
-        data.status = 'SUCCESS';
+          return this._compareImages(fileName);
+        })
+        .then(() => {
+          data.status = 'SUCCESS';
 
-        this._debugLog('images succeeded, all good');
+          this._debugLog('images succeeded, all good');
 
-        res.send(data);
-      }).catch(reason => {
-        console.log(reason)
-        const diffPath = reason ? reason.diffPath : null;
-        const tmpPath = reason ? reason.tmpPath : null;
-        const errorPixelCount = reason ? reason.errorPixelCount : null;
-        this._debugLog('images failed, something went wrong');
+          res.send(data);
+        })
+        .catch((reason) => {
+          console.log(reason);
+          const diffPath = reason ? reason.diffPath : null;
+          const tmpPath = reason ? reason.tmpPath : null;
+          const errorPixelCount = reason ? reason.errorPixelCount : null;
+          this._debugLog('images failed, something went wrong');
 
-        data.status = 'ERROR';
-        data.diffPath = diffPath;
-        data.fullDiffPath = path.join(__dirname, diffPath);
-        data.error = `${errorPixelCount} pixels differ - diff: ${diffPath}, img: ${tmpPath}`;
+          data.status = 'ERROR';
+          data.diffPath = diffPath;
+          data.fullDiffPath = path.join(__dirname, diffPath);
+          data.error = `${errorPixelCount} pixels differ - diff: ${diffPath}, img: ${tmpPath}`;
 
-        res.send(data);
-      });
+          res.send(data);
+        });
     });
   },
 
