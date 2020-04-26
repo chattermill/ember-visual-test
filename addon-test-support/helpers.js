@@ -31,7 +31,7 @@ export async function capture(assert, fileName, {
   const { testId } = assert.test;
 
   const queryParamString = window.location.search.substr(1);
-  const queryParams = queryParamString.split("&");
+  const queryParams = queryParamString.split('&');
 
   // If is in capture mode, set the capture up & stop the tests
   if (queryParams.includes('capture=true')) {
@@ -60,7 +60,7 @@ export async function capture(assert, fileName, {
 
   const url = `${window.location.protocol}//${window.location.host}${
     window.location.pathname
-  }?${urlQueryParams.join("&")}`;
+  }?${urlQueryParams.join('&')}`;
 
   let response = await requestCapture(url, fileName, {
     selector,
@@ -99,12 +99,12 @@ export function prepareCaptureMode() {
   // Add class for capture
   document.body.classList.add('visual-test-capture-mode');
 
-  const event = new CustomEvent("pageLoaded");
+  const event = new CustomEvent('pageLoaded');
   window.dispatchEvent(event);
 
   // Put this into the dom to make headless chrome aware that rendering is complete
   if (!document.querySelector('#visual-test-has-loaded')) {
-    const div = document.createElement("div");
+    const div = document.createElement('div');
     div.setAttribute('id', 'visual-test-has-loaded');
     document.body.appendChild(div);
   }

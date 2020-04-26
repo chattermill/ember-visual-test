@@ -63,8 +63,8 @@ module.exports = {
       flags.push('--start-maximized');
     }
 
-    let noSandbox = options.noSandbox;
-    if (process.env.CI || process.env.TRAVIS || process.env.CIRCLECI) {
+    let { noSandbox } = options;
+    if (process.env.CI) {
       noSandbox = true;
     }
 
@@ -72,11 +72,12 @@ module.exports = {
       headless: true,
       chrome: {
         flags,
-        port: options.port,
+        port: options.port || options.chromePort,
         userDataDir: null,
         noSandbox
       },
       browserlog: true,
+      browserLog: true,
       deviceMetrics: {
         width: windowWidth || options.windowWidth,
         height: windowHeight || options.windowHeight,
@@ -130,14 +131,18 @@ module.exports = {
       return { newBaseline: false, chromeError: true };
     }
 
-    await tab.goTo(url);
-    await tab.resizeFullScreen();
+    try {
+      await tab.goTo(url);
+      await tab.resizeFullScreen();
+    } catch (e) {
+      logError('Error opening or resizing pages');
+      logError(e);
+    }
 
     // This is inserted into the DOM by the capture helper when everything is ready
     await tab.waitForSelectorToLoad('#visual-test-has-loaded', { interval: 1000 });
 
     const fullPath = `${path.join(options.imageDirectory, fileName)}.png`;
-
     const screenshotOptions = { selector, fullPage };
 
     // To avoid problems...
@@ -206,12 +211,12 @@ module.exports = {
 
   middleware(app) {
     app.use(bodyParser.urlencoded({
-      limit: '500mb',
+      limit: '5mb',
       extended: true,
-      parameterLimit: 500000
+      parameterLimit: 5000
     }));
     app.use(bodyParser.json({
-      limit: '500mb'
+      limit: '5mb'
     }));
 
     app.post('/visual-test/make-screenshot', (req, res) => {
