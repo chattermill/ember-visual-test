@@ -4,7 +4,6 @@ const path = require('path');
 const fs = require('fs-extra');
 const pixelmatch = require('pixelmatch');
 const HeadlessChrome = require('simple-headless-chrome');
-const request = require('request-promise-native'); // eslint-disable-line
 const os = require('os');
 
 /* eslint-disable node/no-extraneous-require */
@@ -26,7 +25,6 @@ module.exports = {
     imageMatchThreshold: 0.3,
     imageLogging: false,
     debugLogging: false,
-    imgurClientId: null,
     includeAA: true,
     groupByOs: true,
     chromePort: 0,
@@ -129,7 +127,7 @@ module.exports = {
     } catch (e) {
       logError('Error when launching browser!');
       logError(e);
-      return { newBaseline: false, newScreenshotUrl: null, chromeError: true };
+      return { newBaseline: false, chromeError: true };
     }
 
     await tab.goTo(url);
@@ -146,17 +144,11 @@ module.exports = {
     await tab.wait(delayMs);
 
     // only if the file does not exist, or if we force to save, do we write the actual images themselves
-    let newScreenshotUrl = null;
     const newBaseline = options.forceBuildVisualTestImages || !fs.existsSync(fullPath);
     if (newBaseline) {
       this._imageLog(`Making base screenshot ${fileName}`);
 
       await fs.outputFile(fullPath, await tab.getScreenshot(screenshotOptions, true));
-
-      newScreenshotUrl = await this._tryUploadToImgur(fullPath);
-      if (newScreenshotUrl) {
-        this._imageLog(`New screenshot can be found under ${newScreenshotUrl}`);
-      }
     }
 
     // Always make the tmp screenshot
@@ -171,12 +163,11 @@ module.exports = {
       logError(e);
     }
 
-    return { newBaseline, newScreenshotUrl };
+    return { newBaseline };
   },
 
   _compareImages(fileName) {
     const options = this.visualTest;
-    const _this = this;
 
     if (!fileName.includes('.png')) {
       fileName = `${fileName}.png`;
@@ -186,7 +177,7 @@ module.exports = {
     const imgPath = path.join(options.imageTmpDirectory, fileName);
 
     // eslint-disable-next-line no-async-promise-executor
-    return new Promise(async function(resolve, reject) {
+    return new Promise(async function(resolve) {
       const baseImg = fs.createReadStream(baselineImgPath).pipe(new PNG()).on('parsed', doneReading);
       const tmpImg = fs.createReadStream(imgPath).pipe(new PNG()).on('parsed', doneReading);
       let filesRead = 0;
@@ -209,45 +200,8 @@ module.exports = {
         const diffPath = path.join(options.imageDiffDirectory, fileName);
 
         await fs.outputFile(diffPath, PNG.sync.write(diff));
-
-        Promise.all([
-          _this._tryUploadToImgur(imgPath),
-          _this._tryUploadToImgur(diffPath)
-        ]).then(([urlTmp, urlDiff]) => {
-          reject({
-            errorPixelCount,
-            allowedErrorPixelCount: options.imageMatchAllowedFailures,
-            diffPath: urlDiff || diffPath,
-            tmpPath: urlTmp || imgPath
-          });
-        }).catch(reject);
       }
     });
-  },
-
-  async _tryUploadToImgur(imagePath) {
-    const { imgurClientID } = this.visualTest;
-
-    if (!imgurClientID) {
-      return Promise.resolve(null);
-    }
-
-    return await request.post(
-      'https://api.imgur.com/3/image', {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Client-ID ${imgurClientID}`,
-        },
-        json: {
-          type: 'base64',
-          image: await fs.readFile(imagePath, { encoding: 'base64' })
-        }
-      }).then((body) => {
-        return body.data.link;
-      }).catch((error) => {
-        logError('Error sending data to imgur...');
-        logError(error);
-      });
   },
 
   middleware(app) {
@@ -286,11 +240,9 @@ module.exports = {
         windowWidth,
         windowHeight
       }).then(({
-        newBaseline,
-        newScreenshotUrl
+        newBaseline
       }) => {
 
-        data.newScreenshotUrl = newScreenshotUrl;
         data.newBaseline = newBaseline;
 
         return this._compareImages(fileName);
