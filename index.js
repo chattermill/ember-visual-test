@@ -252,12 +252,12 @@ module.exports = {
 
   middleware(app) {
     app.use(bodyParser.urlencoded({
-      limit: '50mb',
+      limit: '500mb',
       extended: true,
-      parameterLimit: 50000
+      parameterLimit: 500000
     }));
     app.use(bodyParser.json({
-      limit: '50mb'
+      limit: '500mb'
     }));
 
     app.post('/visual-test/make-screenshot', (req, res) => {
