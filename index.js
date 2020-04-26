@@ -29,7 +29,6 @@ module.exports = {
     chromePort: 9222,
     windowWidth: 1440,
     windowHeight: 900,
-    noSandbox: false,
     chromeFlags: [],
   },
 
@@ -64,33 +63,21 @@ module.exports = {
       flags.push('--start-maximized');
     }
 
-    // let { noSandbox } = options;
-    // if (process.env.CI) {
-    //   noSandbox = true;
-    // }
+    if (process.env.CI) {
+      flags.push('--no-sandbox', '–disable-setuid-sandbox');
+    }
 
-    // if (noSandbox) {
-    //   flags.push('--no-sandbox');
-    // }
     // This is started while the app is building, so we can assume this will be ready
     this._debugLog('Starting chrome instance...');
     this.browser = await puppeteer.launch({
+      executablePath: 'google-chrome-stable',
       headless: true,
       defaultViewport: {
         width: windowWidth || options.windowWidth,
         height: windowHeight || options.windowHeight,
       },
       args: flags,
-      // chrome: {
-      //   flags,
-      //   port: options.port || options.chromePort,
-      // },
       userDataDir: null,
-      // browserlog: true,
-      // browserLog: true,
-      // browser: {
-      //   browserLog: options.debugLogging,
-      // },
     });
     this._debugLog(
       `Chrome instance initialized with port=${this.browser.port}`

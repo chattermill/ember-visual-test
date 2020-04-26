@@ -61,6 +61,10 @@ jobs:
       - uses: actions/setup-node@v1
         with:
           node-version: 12.16.2
+      - name: Install
+        uses: ianwalter/puppeteer@12728ddef82390d1ecd4732fb543f62177392fbb
+        with:
+          args: yarn
 
       - name: get yarn cache dir
         id: yarn-cache
@@ -76,6 +80,7 @@ jobs:
         run: yarn install
 
       - name: tests
+        uses: ianwalter/puppeteer@12728ddef82390d1ecd4732fb543f62177392fbb
         run: yarn ${{ matrix.test-suite }}
         continue-on-error: ${{matrix.allow-failure}}
 
