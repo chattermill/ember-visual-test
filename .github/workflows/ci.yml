@@ -30,7 +30,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-
       - name: install dependencies
-        run: yarn install
+        run: yarn install --frozen-lockfile
 
       - name: lint
         run: yarn lint:js
@@ -74,7 +74,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-
       - name: install dependencies
-        run: yarn install
+        run: yarn install --frozen-lockfile
 
       - name: tests
         run: yarn ${{ matrix.test-suite }}
@@ -101,7 +101,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-
       - name: install dependencies
-        run: yarn install --no-lockfile
+        run: yarn install --frozen-lockfile
 
       - name: tests
         run: yarn test
