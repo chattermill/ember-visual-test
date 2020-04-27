@@ -81,7 +81,6 @@ module.exports = {
   },
 
   setupFlags(flags) {
-    if (!flags.includes('--headless')) flags.push('--headless')
     if (!flags.includes('--disable-dev-shm-usage')) flags.push('--disable-dev-shm-usage')
     if (!flags.includes('--disable-gpu')) flags.push('--disable-gpu')
     if (!flags.includes('--disable-software-rasterizer')) flags.push('--disable-software-rasterizer')
