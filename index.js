@@ -52,20 +52,10 @@ module.exports = {
     const options = this.visualTest;
 
     // ensure only strings are used as flags
-    const flags = options.chromeFlags.filter(
+    let flags = options.chromeFlags.filter(
       (flag) => typeof flag === 'string' && flag
     );
-    if (!flags.includes('--enable-logging')) {
-      flags.push('--enable-logging');
-    }
-
-    if (!flags.includes('--start-maximized')) {
-      flags.push('--start-maximized');
-    }
-
-    if (process.env.CI) {
-      flags.push('--no-sandbox', '–disable-setuid-sandbox');
-    }
+    flags = this.setupFlags(flags);
 
     const width = windowWidth || options.windowWidth;
     const height = windowHeight || options.windowHeight;
@@ -88,6 +78,19 @@ module.exports = {
     );
 
     return this.browser;
+  },
+
+  setupFlags(flags) {
+    if (!flags.includes('--headless')) flags.push('--headless')
+    if (!flags.includes('--disable-dev-shm-usage')) flags.push('--disable-dev-shm-usage')
+    if (!flags.includes('--disable-gpu')) flags.push('--disable-gpu')
+    if (!flags.includes('--disable-software-rasterizer')) flags.push('--disable-software-rasterizer')
+    if (!flags.includes('--mute-audio')) flags.push('--mute-audio')
+    if (!flags.includes('--remote-debugging-port=0')) flags.push('--remote-debugging-port=0')
+    if (!flags.includes('--window-size=1440,900')) flags.push('--window-size=1440,900')
+    if (!flags.includes('--enable-logging')) flags.push('--enable-logging');
+    if (!flags.includes('--start-maximized')) flags.push('--start-maximized');
+    if (process.env.CI) flags.push('--no-sandbox', '-–disable-setuid-sandbox');
   },
 
   async _getBrowserPage({ windowWidth, windowHeight }) {
