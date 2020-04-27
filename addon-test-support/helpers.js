@@ -130,7 +130,7 @@ export function ajaxPost(url, data, contentType = 'application/json') {
 
       if (xhr.status === 200) return resolve(data);
 
-      const message = isObject(data) ? JSON.stringify(data) : data;
+      const message = isObject(data) ? JSON.stringify(data, null, 2) : data;
       console.log(`Couldn't post data, data is: ${message}`);
       reject(data);
     };

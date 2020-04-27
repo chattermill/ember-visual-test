@@ -155,7 +155,7 @@ module.exports = {
     await page.waitFor(delayMs);
     this._debugLog('awaited random time');
     this._debugLog(
-      `Screenshot params are: ${JSON.stringify(screenshotOptions)}`
+      `Screenshot params are: ${JSON.stringify(screenshotOptions, null, 2)}`
     );
 
     // only if the file does not exist, or if we force to save, do we write the actual images themselves
@@ -289,7 +289,7 @@ module.exports = {
       };
 
       this._debugLog(
-        `posting screenshot with the options: ${JSON.stringify(params)}`
+        `posting screenshot with the options: ${JSON.stringify(params, null, 2)}`
       );
 
       const data = {};
