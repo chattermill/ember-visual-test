@@ -262,7 +262,7 @@ module.exports = {
       bodyParser.urlencoded({
         limit: '50mb',
         extended: true,
-        parameterLimit: 50000,
+        parameterLimit: 500000,
       })
     );
     app.use(
@@ -315,8 +315,8 @@ module.exports = {
 
           res.send(data);
         })
-        .catch((reason) => {
-          console.log(reason);
+        .catch(reason => {
+          this._debugLog(`Catched making screenshot, reason: ${reason}`);
           const diffPath = reason ? reason.diffPath : null;
           const tmpPath = reason ? reason.tmpPath : null;
           const errorPixelCount = reason ? reason.errorPixelCount : null;
