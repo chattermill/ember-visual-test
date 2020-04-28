@@ -33,7 +33,7 @@ module.exports = {
   },
 
   included(app) {
-    this._super.included.apply(this, ...arguments);
+    this._super.included.apply(this, arguments);
     this._ensureThisImport();
 
     this._debugLog('Setting up ember-visual-test...');
@@ -260,14 +260,14 @@ module.exports = {
   middleware(app) {
     app.use(
       bodyParser.urlencoded({
-        limit: '5mb',
+        limit: '50mb',
         extended: true,
-        parameterLimit: 5000,
+        parameterLimit: 50000,
       })
     );
     app.use(
       bodyParser.json({
-        limit: '5mb',
+        limit: '50mb',
       })
     );
 
