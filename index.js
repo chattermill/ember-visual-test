@@ -64,7 +64,9 @@ module.exports = {
     this._debugLog('Starting chrome instance...');
     this._debugLog(`Launching browse with the size: height - ${height}, width: ${width}`);
 
+    // https://github.com/puppeteer/puppeteer/blob/v3.0.2/docs/api.md#puppeteerlaunchoptions
     this.browser = await puppeteer.launch({
+      product: 'firefox', // chrome
       headless: true,
       defaultViewport: {
         width,
