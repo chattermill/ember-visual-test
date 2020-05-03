@@ -61,8 +61,7 @@ module.exports = {
     const height = windowHeight || options.windowHeight;
 
     // This is started while the app is building, so we can assume this will be ready
-    this._debugLog('Starting chrome instance...');
-    this._debugLog(`Launching browse with the size: height - ${height}, width: ${width}`);
+    this._debugLog(`Browser: launching, size: height - ${height}, width: ${width}`);
 
     this.browser = await puppeteer.launch({
       headless: true,
@@ -97,16 +96,17 @@ module.exports = {
   async _getBrowserPage({ windowWidth, windowHeight }) {
     const browser = await this._getBrowser({ windowWidth, windowHeight });
     const page = await browser.newPage();
+    page.setDefaultTimeout(60 * 1000);
 
     page.once('load', () => {
-      this._debugLog('Page loaded again!');
+      this._debugLog('Page: loaded');
     });
 
     page.on('console', (msg) => {
       this._debugLog(`Browser log: ${msg.text()}`);
     });
 
-    this._debugLog('returning page');
+    this._debugLog('Page: returned');
     return page;
   },
 
@@ -133,7 +133,7 @@ module.exports = {
     try {
       page = await this._getBrowserPage({ windowWidth, windowHeight });
     } catch (e) {
-      logError('Error when launching browser!');
+      logError('Error: launching browser!');
       logError(e);
       return { newBaseline: false, chromeError: true };
     }
@@ -141,13 +141,13 @@ module.exports = {
     try {
       await page.goto(url);
     } catch (e) {
-      logError('Error opening or resizing pages');
+      logError('Error: opening or resizing page');
       logError(e);
     }
 
     // This is inserted into the DOM by the capture helper when everything is ready
     await page.waitForSelector('#visual-test-has-loaded');
-    this._debugLog('selector exist');
+    this._debugLog('Page: selector exist');
 
     const fullPath = `${path.join(options.imageDirectory, fileName)}.png`;
     const screenshotOptions = {
@@ -157,15 +157,15 @@ module.exports = {
 
     // To avoid problems...
     await page.waitFor(delayMs);
-    this._debugLog('awaited random time');
+    this._debugLog('Page: awaited random time');
     this._debugLog(
-      `Screenshot params are: ${JSON.stringify(screenshotOptions, null, 2)}`
+      `Screenshot: params are - ${JSON.stringify(screenshotOptions, null, 2)}`
     );
 
     // only if the file does not exist, or if we force to save, do we write the actual images themselves
     const newBaseline = !fs.existsSync(fullPath);
     if (newBaseline) {
-      this._imageLog(`Making base screenshot ${fileName}`);
+      this._imageLog(`Screenshot: making base screen ${fileName}`);
 
       await page.screenshot(
         Object.assign({}, screenshotOptions, {
@@ -176,20 +176,20 @@ module.exports = {
 
     // Always make the tmp screenshot
     const fullTmpPath = `${path.join(options.imageTmpDirectory, fileName)}.png`;
-    this._imageLog(`Making comparison screenshot ${fileName}`);
+    this._imageLog(`Screenshot: making comparison screen ${fileName}`);
     await page.screenshot(
       Object.assign({}, screenshotOptions, {
         path: fullTmpPath,
       })
     );
 
-    this._debugLog('screenshot generated');
+    this._debugLog('Screenshot: both generated');
 
     try {
       await page.close();
-      this._debugLog('page: closed');
+      this._debugLog('Page: closing');
     } catch (e) {
-      logError('Error closing a tab...');
+      logError('Error: closing a tab');
       logError(e);
     }
 
@@ -248,9 +248,9 @@ module.exports = {
 
           await fs.outputFile(diffPath, PNG.sync.write(diff));
 
-          _this._debugLog('compare images generated');
+          _this._debugLog('Compare: images generated');
         } catch (e) {
-          _this._debugLog('tried to compare images, got error');
+          _this._debugLog('Compare: tried to, got error');
           _this._debugLog(e);
         }
       }
@@ -293,7 +293,7 @@ module.exports = {
       };
 
       this._debugLog(
-        `posting screenshot with the options: ${JSON.stringify(params, null, 2)}`
+        `Screenshot: posting with the options ${JSON.stringify(params, null, 2)}`
       );
 
       const data = {};
@@ -316,7 +316,7 @@ module.exports = {
           res.send(data);
         })
         .catch(reason => {
-          this._debugLog(`Catched making screenshot, reason: ${reason}`);
+          this._debugLog(`Screenshot: catched, reason: ${reason}`);
           const diffPath = reason ? reason.diffPath : null;
           const tmpPath = reason ? reason.tmpPath : null;
           const errorPixelCount = reason ? reason.errorPixelCount : null;
