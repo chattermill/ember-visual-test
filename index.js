@@ -94,6 +94,7 @@ module.exports = {
     if (!flags.includes('-–disable-setuid-sandbox')) flags.push('-–disable-setuid-sandbox');
     if (!flags.includes('--disable-web-security')) flags.push('--disable-web-security');
     if (!flags.includes('--allow-running-insecure-content')) flags.push('--allow-running-insecure-content');
+    if (!flags.includes('--ignore-certificate-errors')) flags.push('--ignore-certificate-errors');
   },
 
   async _getBrowserPage({ windowWidth, windowHeight }) {
@@ -105,9 +106,15 @@ module.exports = {
       this._debugLog('Page: loaded');
     });
 
-    page.on('console', (msg) => {
-      this._debugLog(`Browser log: ${msg.text()}`);
-    });
+    page.on('console', message =>
+      this._debugLog(`Browser log: ${message.type().substr(0, 3).toUpperCase()} ${message.text()}`)
+    ).on('pageerror', ({ message }) =>
+      this._debugLog(`Browser pageerror: ${message}`)
+    ).on('response', response =>
+      this._debugLog(`Browser response: ${response.status()} ${response.url()}`)
+    ).on('requestfailed', request =>
+      this._debugLog(`Browser requestfailed: ${request.failure().errorText} ${request.url()}`)
+    );
 
     this._debugLog('Page: returned');
     return page;
