@@ -65,6 +65,7 @@ module.exports = {
 
     this.browser = await puppeteer.launch({
       headless: true,
+      dumpio: true,
       ignoreHTTPSErrors: true,
       defaultViewport: {
         width,
