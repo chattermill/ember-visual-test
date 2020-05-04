@@ -92,6 +92,8 @@ module.exports = {
     if (!flags.includes('--start-maximized')) flags.push('--start-maximized');
     if (!flags.includes('--no-sandbox')) flags.push('--no-sandbox');
     if (!flags.includes('-–disable-setuid-sandbox')) flags.push('-–disable-setuid-sandbox');
+    if (!flags.includes('--disable-web-security')) flags.push('--disable-web-security');
+    if (!flags.includes('--allow-running-insecure-content')) flags.push('--allow-running-insecure-content');
   },
 
   async _getBrowserPage({ windowWidth, windowHeight }) {
