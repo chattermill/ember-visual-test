@@ -14,8 +14,6 @@ const { PNG } = require('pngjs');
 module.exports = {
   name: require('./package').name,
 
-  // The base settings
-  // This can be overwritten
   visualTest: {
     imageDirectory: 'visual-test-output/baseline',
     imageDiffDirectory: 'visual-test-output/diff',
@@ -29,15 +27,34 @@ module.exports = {
     chromePort: 9222,
     windowWidth: 1440,
     windowHeight: 900,
-    chromeFlags: [],
+    os: 'Linux',
+
+    chromeFlags: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--mute-audio',
+      '--remote-debugging-port=0',
+      '--window-size=1440,900',
+    ].filter(Boolean),
   },
 
-  included(app) {
+  included(/* app */) {
     this._super.included.apply(this, arguments);
     this._ensureThisImport();
 
     this._debugLog('Setting up ember-visual-test...');
-    this._setupOptions(app.options.visualTest);
+
+    let osType = os.type().toLowerCase();
+    switch (osType) {
+      case 'windows_nt':
+        osType = 'win';
+        break;
+      case 'darwin':
+        osType = 'mac';
+        break;
+    }
+    this.visualTest.os = osType;
 
     this.import('vendor/visual-test.css', {
       type: 'test',
@@ -49,23 +66,23 @@ module.exports = {
       return this.browser;
     }
 
-    const options = this.visualTest;
-
     // ensure only strings are used as flags
-    let flags = options.chromeFlags.filter(
-      (flag) => typeof flag === 'string' && flag
+    const flags = this.visualTest.chromeFlags.filter(flag =>
+      typeof flag === 'string' && flag
     );
-    flags = this.setupFlags(flags);
 
-    const width = windowWidth || options.windowWidth;
-    const height = windowHeight || options.windowHeight;
+    log(`Options are: ${JSON.stringify(this.visualTest, null, 2)}`)
+    log('Launching Chrome with the flags: ', JSON.stringify(flags, null, 2));
+
+    const width = windowWidth || this.visualTest.windowWidth;
+    const height = windowHeight || this.visualTest.windowHeight;
 
     // This is started while the app is building, so we can assume this will be ready
     this._debugLog(`Browser: launching, size: height - ${height}, width: ${width}`);
 
     this.browser = await puppeteer.launch({
       headless: true,
-      dumpio: true,
+      dumpio: false,
       ignoreHTTPSErrors: true,
       defaultViewport: {
         width,
@@ -74,28 +91,9 @@ module.exports = {
       args: flags,
       userDataDir: null,
     });
-    this._debugLog(
-      `Chrome instance initialized with port=${this.browser.port}`
-    );
+    this._debugLog(`Chrome instance initialized`);
 
     return this.browser;
-  },
-
-  setupFlags(flags) {
-    if (!flags.includes('--headless')) flags.push('--headless');
-    if (!flags.includes('--disable-dev-shm-usage')) flags.push('--disable-dev-shm-usage');
-    if (!flags.includes('--disable-gpu')) flags.push('--disable-gpu');
-    if (!flags.includes('--disable-software-rasterizer')) flags.push('--disable-software-rasterizer');
-    if (!flags.includes('--mute-audio')) flags.push('--mute-audio');
-    if (!flags.includes('--remote-debugging-port=0')) flags.push('--remote-debugging-port=0');
-    if (!flags.includes('--window-size=1440,900')) flags.push('--window-size=1440,900');
-    if (!flags.includes('--enable-logging')) flags.push('--enable-logging');
-    if (!flags.includes('--start-maximized')) flags.push('--start-maximized');
-    if (!flags.includes('--no-sandbox')) flags.push('--no-sandbox');
-    if (!flags.includes('-–disable-setuid-sandbox')) flags.push('-–disable-setuid-sandbox');
-    if (!flags.includes('--disable-web-security')) flags.push('--disable-web-security');
-    if (!flags.includes('--allow-running-insecure-content')) flags.push('--allow-running-insecure-content');
-    if (!flags.includes('--ignore-certificate-errors')) flags.push('--ignore-certificate-errors');
   },
 
   async _getBrowserPage({ windowWidth, windowHeight }) {
@@ -138,7 +136,6 @@ module.exports = {
     fileName,
     { fullPage, delayMs, windowWidth, windowHeight }
   ) {
-    const options = this.visualTest;
     let page;
 
     try {
@@ -160,7 +157,7 @@ module.exports = {
     await page.waitForSelector('#visual-test-has-loaded');
     this._debugLog('Page: selector exist');
 
-    const fullPath = `${path.join(options.imageDirectory, fileName)}.png`;
+    const fullPath = `${path.join(this.visualTest.imageDirectory, fileName)}.png`;
     const screenshotOptions = {
       fullPage,
       type: 'png',
@@ -186,7 +183,7 @@ module.exports = {
     }
 
     // Always make the tmp screenshot
-    const fullTmpPath = `${path.join(options.imageTmpDirectory, fileName)}.png`;
+    const fullTmpPath = `${path.join(this.visualTest.imageTmpDirectory, fileName)}.png`;
     this._imageLog(`Screenshot: making comparison screen ${fileName}`);
     await page.screenshot(
       Object.assign({}, screenshotOptions, {
@@ -208,15 +205,14 @@ module.exports = {
   },
 
   _compareImages(fileName) {
-    const options = this.visualTest;
     const _this = this;
 
     if (!fileName.includes('.png')) {
       fileName = `${fileName}.png`;
     }
 
-    const baselineImgPath = path.join(options.imageDirectory, fileName);
-    const imgPath = path.join(options.imageTmpDirectory, fileName);
+    const baselineImgPath = path.join(this.visualTest.imageDirectory, fileName);
+    const imgPath = path.join(this.visualTest.imageTmpDirectory, fileName);
 
     // eslint-disable-next-line no-async-promise-executor
     return new Promise(async function (resolve) {
@@ -246,16 +242,16 @@ module.exports = {
             baseImg.width,
             baseImg.height,
             {
-              threshold: options.imageMatchThreshold,
-              includeAA: options.includeAA,
+              threshold: _this.visualTest.imageMatchThreshold,
+              includeAA: _this.visualTest.includeAA,
             }
           );
 
-          if (errorPixelCount <= options.imageMatchAllowedFailures) {
+          if (errorPixelCount <= _this.visualTest.imageMatchAllowedFailures) {
             return resolve();
           }
 
-          const diffPath = path.join(options.imageDiffDirectory, fileName);
+          const diffPath = path.join(_this.visualTest.imageDiffDirectory, fileName);
 
           await fs.outputFile(diffPath, PNG.sync.write(diff));
 
@@ -370,10 +366,8 @@ module.exports = {
   },
 
   _getFileName(fileName) {
-    const options = this.visualTest;
-
-    if (options.groupByOs) {
-      const os = options.os;
+    if (this.visualTest.groupByOs) {
+      const { os } = this.visualTest;
 
       const filePath = path.parse(fileName);
 
@@ -387,22 +381,6 @@ module.exports = {
 
   isDevelopingAddon() {
     return false;
-  },
-
-  _setupOptions(visualTest) {
-    const options = Object.assign({}, this.visualTest, visualTest);
-    this.visualTest = options;
-
-    let osType = os.type().toLowerCase();
-    switch (osType) {
-      case 'windows_nt':
-        osType = 'win';
-        break;
-      case 'darwin':
-        osType = 'mac';
-        break;
-    }
-    options.os = osType;
   },
 };
 
