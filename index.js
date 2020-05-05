@@ -344,8 +344,6 @@ module.exports = {
   },
 
   testemMiddleware(app) {
-    const visualTest = this.project.config('test').visualTest;
-    this._setupOptions(visualTest);
     this.middleware(app);
   },
 
