@@ -58,14 +58,13 @@ jobs:
       - uses: actions/setup-node@v1
         with:
           node-version: 12.16.2
-      - name: Install
-        uses: ianwalter/puppeteer@12728ddef82390d1ecd4732fb543f62177392fbb
-        with:
-          args: yarn
 
       - name: get yarn cache dir
         id: yarn-cache
         run: echo "::set-output name=dir::$(yarn cache dir)"
+
+      - name: Install libgbm-dev
+        run: sudo apt-get update ; sudo apt-get install -y libgbm-dev
 
       - uses: actions/cache@v1
         with:
@@ -78,31 +77,3 @@ jobs:
 
       - name: tests
         run: yarn ${{ matrix.test-suite }}
-        continue-on-error: ${{ matrix.allow-failure }}
-
-  extra-tests:
-    name: Tests (Floating Dependenies)
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-node@v1
-        with:
-          node-version: 12.16.2
-
-      - name: get yarn cache dir
-        id: yarn-cache
-        run: echo "::set-output name=dir::$(yarn cache dir)"
-
-      - uses: actions/cache@v1
-        with:
-          path: ${{ steps.yarn-cache.outputs.dir }}
-          key: ${{ runner.os }}-yarn-test-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-
-      - name: install dependencies
-        run: yarn install --frozen-lockfile
-
-      - name: tests
-        run: yarn test
-        continue-on-error: true

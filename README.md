@@ -1,5 +1,7 @@
 # ember-visual-test
 
+[![Workflows](https://github.com/chattermill/ember-visual-test/workflows/CI/badge.svg)](https://github.com/chattermill/ember-visual-test)
+
 Test screens in acceptance/integration tests for visual changes over time.
 
 [![Ember Observer Score](https://emberobserver.com/badges/ember-visual-test.svg)](https://emberobserver.com/addons/ember-visual-test)
