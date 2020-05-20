@@ -101,6 +101,10 @@ module.exports = {
   async _getBrowserPage({ windowWidth, windowHeight }) {
     const browser = await this._getBrowser({ windowWidth, windowHeight });
     const page = await browser.newPage();
+    page.setViewport({
+      height: windowHeight,
+      width: windowWidth,
+    });
     page.setDefaultTimeout(60 * 1000);
 
     page.once('load', () => {
