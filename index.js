@@ -99,12 +99,13 @@ module.exports = {
   },
 
   async _getBrowserPage({ windowWidth, windowHeight }) {
-    const browser = await this._getBrowser({ windowWidth, windowHeight });
+    const width = Number(windowWidth) || this.visualTest.windowWidth;
+    const height = Number(windowHeight) || this.visualTest.windowHeight;
+
+    const browser = await this._getBrowser({ windowWidth: width, windowHeight: height });
     const page = await browser.newPage();
-    page.setViewport({
-      height: windowHeight,
-      width: windowWidth,
-    });
+
+    page.setViewport({ height, width });
     page.setDefaultTimeout(60 * 1000);
 
     page.once('load', () => {
