@@ -32,6 +32,7 @@ module.exports = {
     chromeFlags: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
+      '--disable-gpu',
       '--headless',
       '--disable-dev-shm-usage',
       '--disable-software-rasterizer',
@@ -84,7 +85,7 @@ module.exports = {
 
     this.browser = await puppeteer.launch({
       headless: true,
-      dumpio: false,
+      dumpio: true,
       ignoreHTTPSErrors: true,
       defaultViewport: {
         width,
