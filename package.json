@@ -18,7 +18,8 @@
     "start": "ember server",
     "test": "ember test",
     "test:one": "ember try:one",
-    "test:all": "ember try:each"
+    "test:all": "ember try:each",
+    "artifactregistry-login": "npx google-artifactregistry-auth"
   },
   "dependencies": {
     "broccoli-funnel": "^2.0.2",
