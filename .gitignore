@@ -27,3 +27,4 @@
 
 visual-test-output/diff/**/*.png
 visual-test-output/tmp/**/*.png
+.npmrc
